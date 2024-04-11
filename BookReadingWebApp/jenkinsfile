@@ -32,20 +32,24 @@ pipeline {
         }
         
         stage('Run SQL Server Container') {
-            steps {
-                script {
-                    sh '''
-                        container_name="sqlserver"
-                        if [ "$(docker ps -aq -f name=${container_name})" ]; then
-                            echo "Container '${container_name}' already exists. Skipping container creation."
-                        else
-                            echo "Container '${container_name}' does not exist. Creating the container..."
-                            docker run -d --name ${container_name} -p 1433:1433 --network devopstest -e 'ACCEPT_EULA=Y' -e 'SA_PASSWORD=Password@123' -e 'MSSQL_PID=Express' mcr.microsoft.com/mssql/server:2022-preview-ubuntu-22.04
-                        fi
-                    '''
-                }
+    steps {
+        script {
+            container_name = "sqlserver"
+            if (sh(script: "docker ps -aq -f name=${container_name}", returnStatus: true) == 0) {
+                echo "Container '${container_name}' already exists. Deleting the existing container..."
+                sh "docker rm -f ${container_name}"
             }
+
+            echo "Creating container '${container_name}'..."
+            sh '''
+                docker run -d --name ${container_name} -p 1433:1433 --network devopstest \
+                -e 'ACCEPT_EULA=Y' -e 'SA_PASSWORD=Password@123' -e 'MSSQL_PID=Express' \
+                mcr.microsoft.com/mssql/server:2022-preview-ubuntu-22.04
+            '''
         }
+    }
+}
+
         
         stage('Run Container') {
             steps {
