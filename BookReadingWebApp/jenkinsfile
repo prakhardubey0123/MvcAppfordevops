@@ -1,0 +1,61 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        
+        stage('Build') {
+            steps {
+                sh 'dotnet build BookReadingWebApp.sln --configuration Release'
+            }
+        }
+        
+        stage('Test') {
+            steps {
+                sh 'dotnet test BookReadingApp.Tests/BookReadingApp.Tests.csproj'
+            }
+        }
+        
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    def imageName = 'mvcbookappimage'
+                    def imageTag = 'latest'
+                    def dockerfilePath = "${WORKSPACE}/BookReadingWebApp/Dockerfile"
+                    sh "docker build -t ${imageName}:${imageTag} -f ${dockerfilePath} ${WORKSPACE}"
+                }
+            }
+        }
+        
+        stage('Run SQL Server Container') {
+            steps {
+                script {
+                    sh '''
+                        container_name="sqlserver"
+                        if [ "$(docker ps -aq -f name=${container_name})" ]; then
+                            echo "Container '${container_name}' already exists. Skipping container creation."
+                        else
+                            echo "Container '${container_name}' does not exist. Creating the container..."
+                            docker run -d --name ${container_name} -p 1433:1433 --network devopstest -e 'ACCEPT_EULA=Y' -e 'SA_PASSWORD=Password@123' -e 'MSSQL_PID=Express' mcr.microsoft.com/mssql/server:2022-preview-ubuntu-22.04
+                        fi
+                    '''
+                }
+            }
+        }
+        
+        stage('Run Container') {
+            steps {
+                script {
+                    sh 'docker rm -f devopsbookapp || true'
+                    def imageId = sh(script: "docker images -q mvcbookappimage:latest", returnStdout: true).trim()
+                    echo "Docker image ID: ${imageId}"
+                    sh "docker run -d --rm --name devopsbookapp -p 7035:80 --network devopstest -e 'ConnectionStrings__DefaultConnection=Server=sqlserver,1433;Database=BookReadingAppDB;User Id=SA;Password=Password@123;Encrypt=False' -e ASPNETCORE_ENVIRONMENT=Development ${imageId}"
+                }
+            }
+        }
+    }
+}
