@@ -20,16 +20,25 @@ pipeline {
             }
         }
         
-        stage('Build Docker Image') {
-            steps {
-                script {
-                    def imageName = 'mvcbookappimage'
-                    def imageTag = 'latest'
-                    def dockerfilePath = "${WORKSPACE}/BookReadingWebApp/Dockerfile"
-                    sh "docker build -t ${imageName}:${imageTag} -f ${dockerfilePath} ${WORKSPACE}"
-                }
+       stage('Build Docker Image') {
+    steps {
+        script {
+            def imageName = 'mvcbookappimage'
+            def imageTag = 'latest'
+            def dockerfilePath = "${WORKSPACE}/BookReadingWebApp/Dockerfile"
+            def existingImageId = sh(script: "docker images -q ${imageName}:${imageTag}", returnStdout: true).trim()
+
+            if (existingImageId) {
+                echo "Existing Docker image ID: ${existingImageId}"
+                sh "docker rmi ${existingImageId}"
+                echo "Deleted existing Docker image: ${imageName}:${imageTag}"
             }
+
+            sh "docker build -t ${imageName}:${imageTag} -f ${dockerfilePath} ${WORKSPACE}"
         }
+    }
+}
+
         
         stage('Run SQL Server Container') {
             steps {
