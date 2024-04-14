@@ -20,7 +20,7 @@ pipeline {
             }
         }
         
-       stage('Build Docker Image') {
+       stage('Docker Build') {
     steps {
         script {
             def imageName = 'mvcbookappimage'
@@ -41,7 +41,7 @@ pipeline {
 }
 
         
-        stage('Run SQL Server Container') {
+        stage('SQL Build') {
             steps {
                 script {
                     sh '''
